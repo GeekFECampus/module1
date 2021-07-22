@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IMG-CONVERT</title>
+</head>
+<body>
+
+<input type="file" onchange="selectImage(this)">
+<div>
+    <img id="preview-img">
+</div>
+
+<button onclick="change()">转换</button>
+<div>
+    <canvas id="canvas" ></canvas>
+</div>
+
+<button onclick="saveImage()">保存</button>
+
+
+<script>
+    if(!window.showSaveFilePicker || window.FileReader) {
+        alert("功能不支持，请使用最新版本 chrome 浏览器")
+    }
+
+    function toBlob(base64) {
+        const arr = base64.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1])
+        let n = bstr.length
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blobData = new Blob([u8arr], {type: mime});
+        return blobData;
+    }
+
+    function toGrey(imgArrData) {
+        for (let i = 0; i < imgArrData.data.length; i += 4) {
+            let r = imgArrData.data[i],
+                g = imgArrData.data[i + 1],
+                b = imgArrData.data[i + 2];
+            const avg = (r + g + b) / 3;
+            imgArrData.data[i] = imgArrData.data[i + 1] = imgArrData.data[i + 2] = avg;
+        }
+        return imgArrData;
+    }
+
+    function change() {
+        const img = document.getElementById("preview-img");
+        if(!img.width){
+            alert('没有选择图片');
+        } else {
+            const cvs = document.getElementById("canvas");
+            cvs.width = img.width;
+            cvs.height = img.height;
+            const ctx = cvs.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            // 获取图片的所有像素点
+            const imgArrData = ctx.getImageData(0, 0, img.width, img.height);
+            ctx.putImageData(toGrey(imgArrData), 0, 0);
+        }
+    }
+
+    function selectImage(fileDOM) {
+        // 获取文件
+        let file = fileDOM.files[0],
+            imageType = /^image\//,
+            // 文件是否为图片
+            reader = "";
+        if (!imageType.test(file.type)) {
+            alert("请选择图片！");
+            return;
+        }
+
+        reader = new FileReader();
+        // 读取完成
+        reader.onload = function(event) {
+            // 获取图片DOM
+            let img = document.getElementById("preview-img"); // 图片路径设置为读取的图片
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+
+    function saveImage() {
+        const write = writable => writable
+            .write(toBlob(document.getElementById("canvas").toDataURL()))
+            .then(() => writable.close());
+
+        // chrome 86+; edge 86+
+        const opts = {
+            types: [{
+                description: 'png 图片',
+                accept: {'image/png': ['.png']},
+            }],
+        };
+        window.showSaveFilePicker(opts)
+            .then(file => file.createWritable())
+            .then(write)
+            .then(() => alert('保存成功'))
+            .catch((err) => alert(err));
+    }
+</script>
+</body>
+</html>
